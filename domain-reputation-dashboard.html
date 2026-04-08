@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Domain Reputation Dashboard — Kit</title>
+<style>
+  :root {
+    --kit-orange: #FB6970;
+    --kit-dark: #1A1A2E;
+    --kit-light: #F5F5F7;
+    --kit-border: #E2E2EA;
+    --green: #22C55E; --yellow: #EAB308; --orange: #F97316; --red: #EF4444;
+    --green-bg: #F0FDF4; --yellow-bg: #FEFCE8; --orange-bg: #FFF7ED; --red-bg: #FEF2F2;
+    --green-text: #15803D; --yellow-text: #854D0E; --orange-text: #9A3412; --red-text: #991B1B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--kit-light); color: #1A1A2E; font-size: 14px; line-height: 1.5; }
+
+  .header { background: var(--kit-dark); padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-logo { font-size: 20px; font-weight: 800; color: var(--kit-orange); letter-spacing: -0.5px; }
+  .header-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.2); }
+  .header-title { color: rgba(255,255,255,0.85); font-size: 14px; font-weight: 500; }
+  .header-right { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.5); font-size: 12px; }
+  .header-badge { background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; font-size: 11px; color: rgba(255,255,255,0.6); }
+
+  .main { padding: 24px 28px; max-width: 1400px; margin: 0 auto; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+  .stat-card { background: white; border: 1px solid var(--kit-border); border-radius: 10px; padding: 16px 18px; }
+  .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--kit-dark); line-height: 1; }
+  .stat-value.alert { color: var(--red); }
+  .stat-value.warn { color: var(--orange); }
+  .stat-sub { font-size: 11px; color: #aaa; margin-top: 4px; }
+
+  .import-panel { background: white; border: 1px solid var(--kit-border); border-radius: 10px; padding: 20px 22px; margin-bottom: 20px; }
+  .import-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .import-panel-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .import-status-loaded { display: inline-flex; align-items: center; gap: 6px; background: var(--green-bg); color: var(--green-text); font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 20px; border: 1px solid #BBF7D0; }
+  .import-status-empty { display: inline-flex; align-items: center; gap: 6px; background: #F8F8FB; color: #888; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 20px; border: 1px solid #E2E2EA; }
+  .drop-zone { border: 2px dashed #D1D5DB; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #FAFAFA; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--kit-orange); background: #FFF5F5; }
+  .drop-zone-icon { font-size: 24px; margin-bottom: 6px; }
+  .drop-zone-text { font-size: 13px; color: #666; }
+  .drop-zone-text strong { color: var(--kit-orange); cursor: pointer; }
+  .drop-zone-hint { font-size: 11px; color: #aaa; margin-top: 4px; }
+  #fileInput { display: none; }
+  .import-help { margin-top: 12px; padding: 10px 14px; background: #F0F4FF; border-radius: 6px; font-size: 12px; color: #4455AA; line-height: 1.6; }
+  .import-help strong { font-weight: 600; }
+
+  .alerts-section { margin-bottom: 20px; display: none; }
+  .alerts-section.visible { display: block; }
+  .alerts-header { font-weight: 600; font-size: 13px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; color: #B91C1C; }
+  .alert-cards { display: flex; flex-wrap: wrap; gap: 10px; }
+  .alert-card { background: white; border: 1px solid #FECACA; border-left: 4px solid var(--red); border-radius: 8px; padding: 12px 16px; min-width: 240px; flex: 1; max-width: 360px; }
+  .alert-card.warn { border-color: #FED7AA; border-left-color: var(--orange); }
+  .alert-card-account { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .alert-card-domain { font-size: 11px; color: #888; margin-bottom: 6px; }
+  .alert-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .alert-card-cgm { font-size: 11px; color: #666; background: #F5F5F7; padding: 2px 7px; border-radius: 4px; }
+  .alert-action-btn { font-size: 11px; font-weight: 500; color: white; background: var(--red); border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .alert-action-btn.warn { background: var(--orange); }
+
+  .filters-bar { background: white; border: 1px solid var(--kit-border); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .search-wrap { position: relative; flex: 1; min-width: 200px; }
+  .search-wrap input { width: 100%; padding: 8px 12px 8px 34px; border: 1px solid var(--kit-border); border-radius: 6px; font-size: 13px; outline: none; background: #FAFAFA; color: var(--kit-dark); }
+  .search-wrap input:focus { border-color: var(--kit-orange); background: white; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 14px; }
+  select { padding: 8px 12px; border: 1px solid var(--kit-border); border-radius: 6px; font-size: 13px; background: #FAFAFA; color: var(--kit-dark); outline: none; cursor: pointer; min-width: 140px; }
+  select:focus { border-color: var(--kit-orange); }
+  .filter-count { font-size: 12px; color: #888; white-space: nowrap; margin-left: auto; }
+  .filter-count strong { color: var(--kit-dark); font-weight: 600; }
+
+  .table-wrap { background: white; border: 1px solid var(--kit-border); border-radius: 10px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #F8F8FB; border-bottom: 1px solid var(--kit-border); }
+  th { padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #888; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--kit-dark); }
+  th .sort-arrow { margin-left: 4px; opacity: 0.4; }
+  th.sorted .sort-arrow { opacity: 1; color: var(--kit-orange); }
+  tbody tr { border-bottom: 1px solid #F0F0F5; transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #FAFAFA; }
+  td { padding: 11px 14px; vertical-align: middle; }
+
+  .account-name { font-weight: 600; font-size: 13px; }
+  .account-name a { color: inherit; text-decoration: none; }
+  .account-name a:hover { color: var(--kit-orange); }
+  .domain-cell { font-size: 11px; color: #888; font-family: 'SF Mono', 'Fira Code', monospace; margin-top: 2px; }
+  .domain-cell.no-domain { color: #ccc; font-style: italic; font-family: inherit; }
+
+  .person-chip { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .person-dot { display: inline-block; width: 20px; height: 20px; border-radius: 50%; font-size: 9px; font-weight: 700; text-align: center; line-height: 20px; flex-shrink: 0; }
+  .person-name { font-size: 12px; color: #444; }
+
+  .rep-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .rep-high { background: var(--green-bg); color: var(--green-text); border: 1px solid #BBF7D0; }
+  .rep-medium { background: var(--yellow-bg); color: var(--yellow-text); border: 1px solid #FEF08A; }
+  .rep-low { background: var(--orange-bg); color: var(--orange-text); border: 1px solid #FDBA74; }
+  .rep-bad { background: var(--red-bg); color: var(--red-text); border: 1px solid #FECACA; }
+  .rep-none { color: #ccc; font-size: 12px; font-style: italic; }
+
+  .trend-up { color: var(--green); font-size: 14px; font-weight: 700; }
+  .trend-down { color: var(--red); font-size: 14px; font-weight: 700; }
+  .trend-flat { color: #ccc; font-size: 14px; }
+  .spam-rate { font-size: 12px; color: #555; }
+  .spam-rate.high-spam { color: var(--red); font-weight: 600; }
+
+  .hs-link { display: inline-flex; align-items: center; color: #ccc; text-decoration: none; font-size: 13px; padding: 4px 6px; border-radius: 4px; }
+  .hs-link:hover { color: var(--kit-orange); background: #FFF5F5; }
+
+  .tooltip-wrap { position: relative; display: inline-block; }
+  .tooltip-wrap .tooltip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--kit-dark); color: white; font-size: 11px; padding: 5px 8px; border-radius: 5px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 50; }
+  .tooltip-wrap:hover .tooltip { opacity: 1; }
+
+  .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; border-top: 1px solid var(--kit-border); }
+  .page-btn { padding: 6px 12px; border: 1px solid var(--kit-border); background: white; border-radius: 5px; font-size: 12px; cursor: pointer; color: #555; }
+  .page-btn:hover { border-color: var(--kit-orange); color: var(--kit-orange); }
+  .page-btn.active { background: var(--kit-orange); border-color: var(--kit-orange); color: white; font-weight: 600; }
+  .page-info { font-size: 12px; color: #aaa; }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: #aaa; }
+  .empty-state-icon { font-size: 32px; margin-bottom: 8px; }
+
+  .footer { text-align: center; padding: 20px; color: #aaa; font-size: 11px; }
+
+  @media (max-width: 900px) {
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">Kit</div>
+    <div class="header-divider"></div>
+    <div class="header-title">Domain Reputation Dashboard</div>
+  </div>
+  <div class="header-right">
+    <span id="lastUpdated">HubSpot data loaded</span>
+    <span class="header-badge">Dedicated Accounts</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Accounts</div>
+      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-sub">Dedicated (CGM-owned)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">With Domain</div>
+      <div class="stat-value" id="statWithDomain">—</div>
+      <div class="stat-sub">Matchable to Postmaster</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🟢 HIGH Rep</div>
+      <div class="stat-value" style="color:#15803D" id="statHigh">—</div>
+      <div class="stat-sub">After CSV import</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">⚠️ LOW Rep</div>
+      <div class="stat-value warn" id="statWarn">—</div>
+      <div class="stat-sub">Needs attention</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🚨 BAD Rep</div>
+      <div class="stat-value alert" id="statCritical">—</div>
+      <div class="stat-sub">Critical — act now</div>
+    </div>
+  </div>
+
+  <!-- IMPORT PANEL -->
+  <div class="import-panel">
+    <div class="import-panel-header">
+      <div class="import-panel-title">
+        <span>📬</span> Google Postmaster Tools — Import Reputation Data
+      </div>
+      <div id="importStatus" class="import-status-empty">⬤ No data loaded</div>
+    </div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="drop-zone-icon">📂</div>
+      <div class="drop-zone-text"><strong>Click to upload</strong> or drag & drop your Postmaster CSV(s)</div>
+      <div class="drop-zone-hint">Export from postmaster.google.com → Select domain → Download CSV · You can upload multiple files at once</div>
+    </div>
+    <input type="file" id="fileInput" accept=".csv" multiple>
+    <div class="import-help">
+      <strong>How to export:</strong> Go to <strong>postmaster.google.com</strong> → select your sending domain → open the <strong>Domain Reputation</strong> chart → click the download icon.
+      Domains in the CSV are matched automatically to accounts below. Upload CSVs for all your sending domains at once.
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="alerts-section" id="alertsSection">
+    <div class="alerts-header">🚨 Accounts Needing Immediate Attention</div>
+    <div class="alert-cards" id="alertCards"></div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters-bar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="Search accounts or domains…">
+    </div>
+    <select id="cgmFilter"><option value="">All CGMs</option></select>
+    <select id="repFilter">
+      <option value="">All Reputations</option>
+      <option value="BAD">🔴 BAD</option>
+      <option value="LOW">🟠 LOW</option>
+      <option value="MEDIUM">🟡 MEDIUM</option>
+      <option value="HIGH">🟢 HIGH</option>
+      <option value="NONE">— No data yet</option>
+    </select>
+    <div class="filter-count">Showing <strong id="filteredCount">—</strong> of <strong id="totalCount">—</strong></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortBy('name')">Account <span class="sort-arrow" id="sort-name">↕</span></th>
+          <th onclick="sortBy('cgm')">CGM <span class="sort-arrow" id="sort-cgm">↕</span></th>
+          <th onclick="sortBy('mrr')">MRR <span class="sort-arrow" id="sort-mrr">↕</span></th>
+          <th onclick="sortBy('reputation')">Reputation <span class="sort-arrow" id="sort-reputation">↕</span></th>
+          <th>Trend</th>
+          <th>Spam Rate</th>
+          <th>Last Data</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div id="emptyState" class="empty-state" style="display:none">
+      <div class="empty-state-icon">🔍</div>
+      <div>No accounts match your filters</div>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<div class="footer">Data sourced from HubSpot CRM · Domain reputation from Google Postmaster Tools · Kit Internal Tool</div>
+
+<script>
+// ─── CGM / OWNER COLORS ───────────────────────────────────────────────────────
+const PERSON_COLORS = {
+  "82473905":  { color: "#FB6970", bg: "#FFF0F0" },  // Dustin Hart
+  "196575032": { color: "#8B5CF6", bg: "#F5F3FF" },  // Morgan Kitzmiller
+  "342934695": { color: "#0EA5E9", bg: "#F0F9FF" },  // Preston Lyman
+  "113722722": { color: "#10B981", bg: "#ECFDF5" },  // Alex Weatherill
+  "230099886": { color: "#F59E0B", bg: "#FFFBEB" },  // Haley Janicek
+  "404230180": { color: "#EC4899", bg: "#FDF2F8" },  // Helen Anders
+  "196568073": { color: "#6366F1", bg: "#EEF2FF" },  // Kyle Adams
+  "1243417131":{ color: "#14B8A6", bg: "#F0FDFA" },  // Maggie Goldstone
+  "79561865":  { color: "#84CC16", bg: "#F7FEE7" },  // Manpreet Kaur
+  "265916319": { color: "#F97316", bg: "#FFF7ED" },  // Sean Stewart
+  "1748063463":{ color: "#A855F7", bg: "#FAF5FF" },  // Karen Howell
+};
+
+function personChip(id, name) {
+  if (!name) return '<span style="color:#ccc;font-size:12px">—</span>';
+  const c = PERSON_COLORS[id] || { color: "#888", bg: "#F5F5F5" };
+  const initials = name.split(" ").map(w => w[0]).slice(0,2).join("");
+  return `<div class="person-chip"><span class="person-dot" style="background:${c.bg};color:${c.color}">${initials}</span><span class="person-name">${name}</span></div>`;
+}
+
+// ─── ACCOUNTS (loaded via CSV import) ────────────────────────────────────────
+const ACCOUNTS = []
+
+// ─── POSTMASTER DATA ──────────────────────────────────────────────────────────
+let postmasterData = {};
+let csvOnlyAccounts = [];
+const REP_ORDER = { "HIGH": 4, "MEDIUM": 3, "LOW": 2, "BAD": 1, "": 0 };
+
+function repBadge(rep) {
+  if (!rep) return '<span class="rep-none">—</span>';
+  const cls = { HIGH: "rep-high", MEDIUM: "rep-medium", LOW: "rep-low", BAD: "rep-bad" }[rep] || "";
+  const icon = { HIGH: "🟢", MEDIUM: "🟡", LOW: "🟠", BAD: "🔴" }[rep] || "";
+  return `<span class="rep-badge ${cls}">${icon} ${rep}</span>`;
+}
+function trendIcon(trend) {
+  if (trend === "up") return '<span class="trend-up tooltip-wrap">↑<span class="tooltip">Reputation improved</span></span>';
+  if (trend === "down") return '<span class="trend-down tooltip-wrap">↓<span class="tooltip">Reputation dropped</span></span>';
+  if (trend === "flat") return '<span class="trend-flat">—</span>';
+  return '<span style="color:#ddd">—</span>';
+}
+
+// ─── SORT / FILTER ────────────────────────────────────────────────────────────
+let sortField = "mrr", sortDir = "desc", currentPage = 1;
+const PAGE_SIZE = 25;
+
+function getAllAccounts() {
+  return [...ACCOUNTS, ...csvOnlyAccounts];
+}
+
+function getFiltered() {
+  const q = document.getElementById("searchInput").value.toLowerCase();
+  const cgmF = document.getElementById("cgmFilter").value;
+  const repF = document.getElementById("repFilter").value;
+  const csvLoaded = Object.keys(postmasterData).length > 0;
+  return getAllAccounts().filter(a => {
+    const pm = postmasterData[a.domain] || {};
+    const rep = pm.reputation || "";
+    // Once a CSV is loaded, hide HubSpot accounts with no matching postmaster data
+    if (csvLoaded && !a.csvOnly && !pm.reputation) return false;
+    if (q && !a.name.toLowerCase().includes(q) && !a.domain.toLowerCase().includes(q)) return false;
+    if (cgmF && a.cgm_id !== cgmF) return false;
+    if (repF === "NONE" && rep !== "") return false;
+    if (repF && repF !== "NONE" && rep !== repF) return false;
+    return true;
+  }).sort((a, b) => {
+    const pmA = postmasterData[a.domain] || {}, pmB = postmasterData[b.domain] || {};
+    if (sortField === "reputation") {
+      const va = REP_ORDER[pmA.reputation || ""] ?? 0;
+      const vb = REP_ORDER[pmB.reputation || ""] ?? 0;
+      return sortDir === "asc" ? va - vb : vb - va;
+    }
+    if (sortField === "mrr") {
+      return sortDir === "asc" ? a.mrr - b.mrr : b.mrr - a.mrr;
+    }
+    const va = sortField === "cgm" ? a.cgm_name : a.name;
+    const vb = sortField === "cgm" ? b.cgm_name : b.name;
+    return sortDir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+}
+
+function sortBy(f) {
+  if (sortField === f) sortDir = sortDir === "asc" ? "desc" : "asc"; else { sortField = f; sortDir = "asc"; }
+  renderTable();
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderTable() { currentPage = 1; renderPage(getFiltered()); }
+
+function renderPage(filtered) {
+  document.querySelectorAll(".sort-arrow").forEach(el => el.textContent = "↕");
+  const arrow = document.getElementById("sort-" + sortField);
+  if (arrow) arrow.textContent = sortDir === "asc" ? "↑" : "↓";
+
+  const allAccts = getAllAccounts();
+  document.getElementById("filteredCount").textContent = filtered.length;
+  document.getElementById("totalCount").textContent = allAccts.length;
+
+  const withDomain = allAccts.filter(a => a.domain).length;
+  const critical = allAccts.filter(a => (postmasterData[a.domain]||{}).reputation === "BAD").length;
+  const warn = allAccts.filter(a => (postmasterData[a.domain]||{}).reputation === "LOW").length;
+  const high = allAccts.filter(a => (postmasterData[a.domain]||{}).reputation === "HIGH").length;
+  document.getElementById("statTotal").textContent = allAccts.length;
+  document.getElementById("statWithDomain").textContent = withDomain;
+  document.getElementById("statHigh").textContent = high;
+  document.getElementById("statWarn").textContent = warn;
+  document.getElementById("statCritical").textContent = critical;
+
+  // Alerts
+  const alertAccts = allAccts.filter(a => { const r = (postmasterData[a.domain]||{}).reputation; return r === "BAD" || r === "LOW"; });
+  const alertSec = document.getElementById("alertsSection");
+  const alertCards = document.getElementById("alertCards");
+  if (alertAccts.length) {
+    alertSec.classList.add("visible");
+    alertCards.innerHTML = alertAccts.map(a => {
+      const pm = postmasterData[a.domain] || {};
+      const bad = pm.reputation === "BAD";
+      return `<div class="alert-card ${bad ? '' : 'warn'}">
+        <div class="alert-card-account">${a.name || "(unnamed)"}</div>
+        <div class="alert-card-domain">${a.domain || "No domain"}</div>
+        <div class="alert-card-meta">
+          ${repBadge(pm.reputation)}
+          ${a.cgm_name ? `<span class="alert-card-cgm">CGM: ${a.cgm_name}</span>` : ""}
+          <a href="https://app.hubspot.com/contacts/5217515/record/0-2/${a.id}?utm_source=rep_dashboard" target="_blank" class="alert-action-btn ${bad ? '' : 'warn'}">View in HubSpot</a>
+        </div>
+      </div>`;
+    }).join("");
+  } else { alertSec.classList.remove("visible"); }
+
+  // Table rows
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = filtered.slice(start, start + PAGE_SIZE);
+  const tbody = document.getElementById("tableBody");
+  const empty = document.getElementById("emptyState");
+  if (!filtered.length) { tbody.innerHTML = ""; empty.style.display = "block"; }
+  else {
+    empty.style.display = "none";
+    tbody.innerHTML = page.map(a => {
+      const pm = postmasterData[a.domain] || {};
+      const domainHtml = a.domain
+        ? `<div class="domain-cell">${a.domain}</div>`
+        : `<div class="domain-cell no-domain">No domain on record</div>`;
+      const spamHtml = pm.spamRate !== undefined
+        ? `<span class="spam-rate ${pm.spamRate > 0.001 ? 'high-spam' : ''}">${(pm.spamRate * 100).toFixed(3)}%</span>`
+        : `<span style="color:#ddd">—</span>`;
+      const mrrDisplay = a.mrr > 0
+        ? `<span style="font-weight:600;color:#1A1A2E">$${a.mrr.toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0})}</span>`
+        : `<span style="color:#ccc;font-size:12px">—</span>`;
+      if (a.csvOnly) {
+        return `<tr style="opacity:0.85">
+          <td><div class="account-name" style="color:#888;font-style:italic">${a.domain}</div><div style="font-size:10px;background:#F3F4F6;color:#9CA3AF;display:inline-block;padding:1px 6px;border-radius:4px;margin-top:2px">CSV only — not in HubSpot</div></td>
+          <td><span style="color:#ccc;font-size:12px">—</span></td>
+          <td>${mrrDisplay}</td>
+          <td>${repBadge(pm.reputation)}</td>
+          <td>${trendIcon(pm.trend)}</td>
+          <td>${spamHtml}</td>
+          <td><span style="font-size:11px;color:#aaa">${pm.lastDate || ""}</span></td>
+          <td><span style="color:#ddd;font-size:12px">—</span></td>
+        </tr>`;
+      }
+      return `<tr>
+        <td><div class="account-name"><a href="https://app.hubspot.com/contacts/5217515/record/0-2/${a.id}?utm_source=rep_dashboard" target="_blank">${a.name || "<em style='color:#bbb'>Unnamed</em>"}</a></div>${domainHtml}</td>
+        <td>${personChip(a.cgm_id, a.cgm_name)}</td>
+        <td>${mrrDisplay}</td>
+        <td>${repBadge(pm.reputation)}</td>
+        <td>${trendIcon(pm.trend)}</td>
+        <td>${spamHtml}</td>
+        <td><span style="font-size:11px;color:#aaa">${pm.lastDate || ""}</span></td>
+        <td><a href="https://app.hubspot.com/contacts/5217515/record/0-2/${a.id}?utm_source=rep_dashboard" target="_blank" class="hs-link tooltip-wrap">↗<span class="tooltip">Open in HubSpot</span></a></td>
+      </tr>`;
+    }).join("");
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pag = document.getElementById("pagination");
+  if (totalPages <= 1) { pag.innerHTML = ""; return; }
+  let html = "";
+  if (currentPage > 1) html += `<button class="page-btn" onclick="goPage(${currentPage-1})">← Prev</button>`;
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= currentPage-1 && i <= currentPage+1)) html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+    else if (i === currentPage-2 || i === currentPage+2) html += `<span class="page-info">…</span>`;
+  }
+  if (currentPage < totalPages) html += `<button class="page-btn" onclick="goPage(${currentPage+1})">Next →</button>`;
+  pag.innerHTML = html;
+}
+
+function goPage(n) { const f = getFiltered(); currentPage = n; renderPage(f); window.scrollTo({top:0,behavior:"smooth"}); }
+
+// ─── POPULATE FILTERS ─────────────────────────────────────────────────────────
+function populateFilters() {
+  const cgms = {};
+  ACCOUNTS.forEach(a => { if (a.cgm_id && a.cgm_name) cgms[a.cgm_id] = a.cgm_name; });
+  const cgmSel = document.getElementById("cgmFilter");
+  Object.entries(cgms).sort((a,b)=>a[1].localeCompare(b[1])).forEach(([id,name]) => {
+    const o = document.createElement("option"); o.value = id; o.textContent = name; cgmSel.appendChild(o);
+  });
+}
+
+// ─── CSV IMPORT ───────────────────────────────────────────────────────────────
+function parsePostmasterCSV(text, filename) {
+  const lines = text.trim().split("\n");
+  if (lines.length < 2) return;
+  const header = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, "_"));
+  const dateIdx = header.findIndex(h => h.includes("date"));
+  const domainIdx = header.findIndex(h => h.includes("domain") && !h.includes("reputation") && !h.includes("ip"));
+  const repIdx = header.findIndex(h => h.includes("domain_reputation") || (h.includes("domain") && h.includes("reputation")));
+  const spamIdx = header.findIndex(h => h.includes("spam"));
+  let csvDomain = "";
+  if (domainIdx === -1) {
+    const m = filename.match(/^([a-z0-9.\-]+)\s*[\-–]/i);
+    if (m) csvDomain = m[1].toLowerCase();
+  }
+  const entries = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g,""));
+    if (cols.length < 2) continue;
+    const date = dateIdx >= 0 ? cols[dateIdx] : "";
+    const domain = (domainIdx >= 0 ? cols[domainIdx] : csvDomain).toLowerCase();
+    const repRaw = repIdx >= 0 ? cols[repIdx].toUpperCase() : "";
+    const reputation = ["HIGH","MEDIUM","LOW","BAD"].includes(repRaw) ? repRaw : "";
+    const spamRaw = spamIdx >= 0 ? parseFloat(cols[spamIdx]) : NaN;
+    if (domain) entries.push({ date, domain, reputation, spamRate: isNaN(spamRaw) ? undefined : spamRaw });
+  }
+  const grouped = {};
+  entries.forEach(e => { if (!grouped[e.domain]) grouped[e.domain] = []; grouped[e.domain].push(e); });
+  Object.entries(grouped).forEach(([domain, rows]) => {
+    rows.sort((a,b) => a.date.localeCompare(b.date));
+    const latest = rows[rows.length-1], prev = rows.length > 1 ? rows[rows.length-2] : null;
+    let trend = "";
+    if (prev && latest.reputation && prev.reputation) {
+      const d = (REP_ORDER[latest.reputation]||0) - (REP_ORDER[prev.reputation]||0);
+      trend = d > 0 ? "up" : d < 0 ? "down" : "flat";
+    }
+    postmasterData[domain] = { reputation: latest.reputation, spamRate: latest.spamRate, lastDate: latest.date, trend, history: rows };
+  });
+
+  // Add any CSV domains not already in ACCOUNTS as "CSV only" rows
+  const knownDomains = new Set(ACCOUNTS.map(a => (a.domain || "").toLowerCase()).filter(Boolean));
+  const existingCsvDomains = new Set(csvOnlyAccounts.map(a => a.domain));
+  Object.keys(postmasterData).forEach(domain => {
+    if (!knownDomains.has(domain) && !existingCsvDomains.has(domain)) {
+      csvOnlyAccounts.push({ id: null, name: domain, domain, cgm_id: "", cgm_name: "", mrr: 0, csvOnly: true });
+    }
+  });
+}
+
+function handleFiles(files) {
+  let done = 0;
+  postmasterData = {};
+  csvOnlyAccounts = [];
+  Array.from(files).forEach(file => {
+    const r = new FileReader();
+    r.onload = e => {
+      parsePostmasterCSV(e.target.result, file.name);
+      if (++done === files.length) {
+        const n = Object.keys(postmasterData).length;
+        const matched = n - csvOnlyAccounts.length;
+        const s = document.getElementById("importStatus");
+        s.className = "import-status-loaded";
+        s.innerHTML = `✓ ${n} domain${n!==1?'s':''} loaded (${matched} matched to HubSpot, ${csvOnlyAccounts.length} CSV-only)`;
+        document.getElementById("lastUpdated").textContent = "Postmaster: " + new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+        renderTable();
+      }
+    };
+    r.readAsText(file);
+  });
+}
+
+document.getElementById("fileInput").addEventListener("change", e => { if (e.target.files.length) handleFiles(e.target.files); });
+const dz = document.getElementById("dropZone");
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag-over"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag-over"); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+["searchInput","cgmFilter","repFilter"].forEach(id => {
+  document.getElementById(id).addEventListener("input", renderTable);
+  document.getElementById(id).addEventListener("change", renderTable);
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+populateFilters();
+renderTable();
+</script>
+</body>
+</html>
